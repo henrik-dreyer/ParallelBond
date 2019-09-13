@@ -99,16 +99,16 @@ from qiskit.chemistry import FermionicOperator
 from qiskit.providers.aer import noise
 from qiskit.ignis.mitigation.measurement import CompleteMeasFitter
 
-provider = IBMQ.load_account()
-backend = Aer.get_backend("qasm_simulator")
-device = provider.get_backend("ibmqx4")
-coupling_map = device.configuration().coupling_map
-noise_model = noise.device.basic_device_noise_model(device.properties())
-quantum_instance = QuantumInstance(backend=backend, shots=1000, 
-                                   noise_model=noise_model, 
-                                   coupling_map=coupling_map,
-                                   measurement_error_mitigation_cls=CompleteMeasFitter,
-                                   cals_matrix_refresh_period=30,)
+#provider = IBMQ.load_account()
+#backend = Aer.get_backend("qasm_simulator")
+#device = provider.get_backend("ibmqx4")
+#coupling_map = device.configuration().coupling_map
+#noise_model = noise.device.basic_device_noise_model(device.properties())
+#quantum_instance = QuantumInstance(backend=backend, shots=1000, 
+#                                   noise_model=noise_model, 
+#                                   coupling_map=coupling_map,
+#                                   measurement_error_mitigation_cls=CompleteMeasFitter,
+#                                   cals_matrix_refresh_period=30,)
 
 exact_solution = ExactEigensolver(qubitOp).run()
 print("Exact Result:", exact_solution['energy'])
@@ -117,16 +117,16 @@ var_form = RYRZ(qubitOp.num_qubits, depth=1, entanglement="linear")
 vqe = VQE(qubitOp, var_form, optimizer=optimizer, operator_mode="grouped_paulis")
 
 parameters=np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16])
-#E=VQE._energy_evaluation(vqe,parameters)
+E=VQE._energy_evaluation(vqe,parameters)
+print(E)
+#ret = vqe.run(quantum_instance)
+#print("VQE Result:", ret['energy'])
 
-ret = vqe.run(quantum_instance)
-print("VQE Result:", ret['energy'])
 
+#ret_op = op_converter.to_tpb_grouped_weighted_pauli_operator(
+              #      operator, TPBGroupedWeightedPauliOperator.sorted_grouping)
 
-ret_op = op_converter.to_tpb_grouped_weighted_pauli_operator(
-                    operator, TPBGroupedWeightedPauliOperator.sorted_grouping)
-
-ret_op.construct_evaluation_circuit(operator_mode=None, input_circuit=None, backend=None, qr=None, cr=None, use_simulator_operator_mode=False, wave_function=None, statevector_mode=None, circuit_name_prefix='')
+#ret_op.construct_evaluation_circuit(operator_mode=None, input_circuit=None, backend=None, qr=None, cr=None, use_simulator_operator_mode=False, wave_function=None, statevector_mode=None, circuit_name_prefix='')
 
 #vqe = VQE(qubitOp, var_form, SPSA, 'paulis')
 #results = vqe.run(backend)['energy'] + shift
