@@ -16,6 +16,12 @@
 The Variational Quantum Eigensolver algorithm.
 
 See https://arxiv.org/abs/1304.3061
+
+Changes for parallelization:
+    Now takes a list of QuantumInstances rather than a single one (a list with
+    a single QuantumInstance may be passed for the original functionality).
+    Does not support parameter sets, statevector simulation and the calculation
+    of the standard deviation is not correct.
 """
 
 import logging
@@ -417,15 +423,24 @@ class VQE(VQAlgorithm):
             extra_args = {}
             
         results=[]
-        #jobs=[]
-        for i in range(self._threads):
-            results.append(self._quantum_instance[i].execute(to_be_simulated_circuits, optimization_level=3, **extra_args))
+        jobs=[]
         
-        #for i in range(self._threads):
-        #    jobs.append(self._quantum_instance[i].execute(to_be_simulated_circuits, optimization_level=3, **extra_args))
-            
-        #for i in range(self._threads):
-        #    results.append(jobs[i].result)
+        #Here we distribute the energy evaluation over a list of quantum 
+        #instances. We assume each instance has the same number of shots
+        #(which can be modified easily). Unfortunately, the current
+        #implementation of the execute method in QuantumInstance in
+        #Aqua is rather different from the Qiskit funtion execute. The
+        #latter returns a job handle and in principle the program can go
+        #on while the result is being computed over the cloud.
+        #The execute method of QuantumInstance immediately retrieves the
+        #result. 
+        
+        for i in range(self._threads):
+            jobs.append(self._quantum_instance[i].execute(to_be_simulated_circuits, optimization_level=3, **extra_args))
+        
+        for i in range(self._threads):
+            results.append(job[i])
+  
         
         means=[]
         for i in range(self._threads):
