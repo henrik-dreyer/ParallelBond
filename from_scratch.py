@@ -97,8 +97,59 @@ def createPlot2(exactGroundStateEnergy=-1.14,numberOfIterations=1000,bondLength=
     with open(filename, 'wb') as f:
         pickle.dump([iterations, values], f)
     plt.plot(iterations, values)
-    plt.ylabel('Ground State Energy')
+    plt.ylabel('Energy Error')
     plt.xlabel('Iterations')
+    plt.show()
+
+def createPlot3(minShots= 50,stepSize=50, maxShots= 1000, exactGroundStateEnergy=-1.14,totalNumberOfShots=10000,bondLength=0.735,initialParameters=None,numberOfParameters=16,registerSize = 12,map_type='jordan_wigner'):
+    if initialParameters is None:
+        initialParameters = np.random.rand(numberOfParameters)
+    global qubitOp
+    global qr_size
+    global shots
+    global values
+    qr_size = registerSize
+
+    #Build Molecule and stuff
+    driver = PySCFDriver(atom="H .0 .0 .0; H .0 .0 " + str(bondLength), unit=UnitsType.ANGSTROM,
+                         charge=0, spin=0, basis='sto3g')
+    molecule = driver.run()
+    repulsion_energy = molecule.nuclear_repulsion_energy
+    num_spin_orbitals = molecule.num_orbitals * 2
+    num_particles = molecule.num_alpha + molecule.num_beta
+    ferOp = FermionicOperator(h1=molecule.one_body_integrals, h2=molecule.two_body_integrals)
+    qubitOp = ferOp.mapping(map_type=map_type, threshold=0.00000001)
+
+    #create Shots Array
+    shotValues = []
+    numberOfDataPoints=math.floor((maxShots-minShots)/stepSize)
+    for i in range(numberOfDataPoints):
+        shotValues.append(minShots+i*stepSize)
+
+    values=[]
+    print(shotValues)
+    for shotsPerPoint in shotValues:
+        shots = shotsPerPoint
+        if shotsPerPoint <= totalNumberOfShots:
+            optimizer = COBYLA(maxiter=math.floor(totalNumberOfShots/shotsPerPoint))
+            sol_opt = optimizer.optimize(numberOfParameters, energy_opt, gradient_function=None,
+                                 variable_bounds=None, initial_point=initialParameters)
+            values.append(sol_opt[1] + repulsion_energy)
+        else:
+            raise Exception('Error: Total number of shots too small.')
+
+
+    #Calculate Energy Error
+    for i in range(len(values)):
+        values[i] = values[i]+ repulsion_energy - exactGroundStateEnergy
+
+    #Saving and Plotting Data
+    filename = 'Energy Error - Number of Shots'
+    with open(filename, 'wb') as f:
+        pickle.dump([shotValues, values], f)
+    plt.plot(shotValues, values)
+    plt.ylabel('Energy Error')
+    plt.xlabel('Number of Shots')
     plt.show()
 
 
@@ -133,7 +184,6 @@ def energy_opt(parameters):
     circuit = var_form.construct_circuit(parameters)
     energy = E(circuit, var_form, qubitOp, qr_size)
     if plottingTime:
-        print('bla')
         values.append(energy)
     print(energy)
     return energy
@@ -206,8 +256,9 @@ quantum_instance = QuantumInstance(backend=backend, shots=1000,
 
 #HF_state=HartreeFock(qubitOp.num_qubits, num_spin_orbitals, num_particles, map_type) \\we need this for UCCSD
 
-createPlot1()
-#createPlot2(numberOfIterations=20)
+#createPlot1()
+#createPlot2(numberOfIterations=100,registerSize=12)
+createPlot3()
 
 '''
 r=np.random.rand(16)
