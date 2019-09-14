@@ -21,7 +21,17 @@ Changes for parallelization:
     Now takes a list of QuantumInstances rather than a single one (a list with
     a single QuantumInstance may be passed for the original functionality).
     Does not support parameter sets, statevector simulation and the calculation
-    of the standard deviation is not correct.
+    of the standard deviation is not correct. Also, currently it is assumed
+    that all backends are the same.
+    
+    During each energy evaluation the same circuits us sent to as many quantum
+    instances for evaluation. However, currently the qiskit.aqua.QuantumInstance
+    class' execute function is different from the root Qiskit execute function
+    in the following way: The root function execute returns a job handle and
+    in principle the program can go on while the result is being computed 
+    over the cloud. The execute method of QuantumInstance waits for the result
+    to come in and returns a result object. For scheduling and for clarity,
+    it would probably a good idea to make those functions more similar :-)
 """
 
 import logging
@@ -426,20 +436,13 @@ class VQE(VQAlgorithm):
         jobs=[]
         
         #Here we distribute the energy evaluation over a list of quantum 
-        #instances. We assume each instance has the same number of shots
-        #(which can be modified easily). Unfortunately, the current
-        #implementation of the execute method in QuantumInstance in
-        #Aqua is rather different from the Qiskit funtion execute. The
-        #latter returns a job handle and in principle the program can go
-        #on while the result is being computed over the cloud.
-        #The execute method of QuantumInstance immediately retrieves the
-        #result. 
+        #instances. For a comment see top.
         
         for i in range(self._threads):
             jobs.append(self._quantum_instance[i].execute(to_be_simulated_circuits, optimization_level=3, **extra_args))
         
         for i in range(self._threads):
-            results.append(job[i])
+            results.append(jobs[i])
   
         
         means=[]
@@ -462,7 +465,6 @@ class VQE(VQAlgorithm):
             means.append(mean_energy)
         mean_energy=np.sum(means)/self._threads
 
-        print(mean_energy)
         return mean_energy #if len(mean_energy) > 1 else mean_energy[0]
 
     def get_optimal_cost(self):
