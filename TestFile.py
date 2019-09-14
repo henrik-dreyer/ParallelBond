@@ -177,7 +177,7 @@ def sum_binary(counts, pauli = Pauli):
 
 global plottingTime
 plottingTime= False
-noise = False
+noisy = False
 
 # Noisy Backend :-)
 if noisy:
