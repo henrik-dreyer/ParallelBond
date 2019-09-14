@@ -182,7 +182,7 @@ def energy_opt(parameters):
     #                 active_occupied=None, active_unoccupied=None, initial_state=HF_state,
     #                 qubit_mapping="jordan_wigner", two_qubit_reduction = False, num_time_slices = 1, shallow_circuit_concat = True, z2_symmetries = None)
     circuit = var_form.construct_circuit(parameters)
-    energy = E(circuit, var_form, qubitOp, qr_size)
+    energy = E(circuit, qubitOp, qr_size)
     if plottingTime:
         values.append(energy)
     print(energy)
@@ -191,7 +191,7 @@ def energy_opt(parameters):
 
 
 #Optimization
-def E(circuit = QuantumCircuit, var_form = VariationalForm, qubitOp = WeightedPauliOperator, qr_size = int):
+def E(circuit = QuantumCircuit, qubitOp = WeightedPauliOperator, qr_size = int):
    #get circuits of parameter
    energy=0
    pauli_size = qubitOp.num_qubits
@@ -235,7 +235,7 @@ def sum_binary(counts, pauli = Pauli):
             if int(i) == 1 and countOperator[counter]:
                 parity += 1
             counter += 1
-        sum += (-1) ** parity * counts[key]
+        sum += ((-1) ** parity) * counts[key]
         total += counts[key]
     return sum / total
 
@@ -257,18 +257,5 @@ quantum_instance = QuantumInstance(backend=backend, shots=1000,
 #HF_state=HartreeFock(qubitOp.num_qubits, num_spin_orbitals, num_particles, map_type) \\we need this for UCCSD
 
 #createPlot1()
-#createPlot2(numberOfIterations=100,registerSize=12)
-createPlot3()
-
-'''
-r=np.random.rand(16)
-r= np.array([ 0.1887294 ,  1.6412292 ,  1.28960801,  0.02820515, -0.14967703,
-        0.44681611,  1.46267043, -0.35240468,  1.76537533,  1.55680412,
-        1.70234826,  0.50467851,  0.08815427,  0.12147291,  2.07086526,
-        1.27208018]) \\good starting parameters for RYRZ
-optimizer = COBYLA(maxiter=100)
-sol_opt = optimizer.optimize(16, energy_opt, gradient_function=None,
-                variable_bounds=None, initial_point=r)
-print(sol_opt)
-'''
-
+createPlot2(numberOfIterations=100,registerSize=12)
+#createPlot3()
