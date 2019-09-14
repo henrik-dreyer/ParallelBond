@@ -26,14 +26,15 @@ from qiskit.ignis.mitigation.measurement import CompleteMeasFitter
 from qiskit.aqua.operators.weighted_pauli_operator import WeightedPauliOperator
 backend = Aer.get_backend("qasm_simulator")
 
-def createPlot1(bondLengthMin,bondLengthMax,numberOfPoints=10,initialParameters=None,numberOfParameters=16,shotsPerPoint=1000,registerSize = 8,map_type='jordan_wigner'):
+def createPlot1(bondLengthMin=0.5,bondLengthMax=1.5,numberOfPoints=10,initialParameters=None,numberOfParameters=16,shotsPerPoint=1000,registerSize = 12,map_type='jordan_wigner'):
    if initialParameters is None:
        initialParameters = np.random.rand(numberOfParameters)
-   shift=0
    global qubitOp
    global qr_size
+   global shots
+   shots=shotsPerPoint
    qr_size = registerSize
-   optimizer = COBYLA(maxiter=10)
+   optimizer = COBYLA(maxiter=20)
    bondLengths = []
    values = []
    delta = (bondLengthMax-bondLengthMin)/numberOfPoints
@@ -58,6 +59,47 @@ def createPlot1(bondLengthMin,bondLengthMax,numberOfPoints=10,initialParameters=
    plt.ylabel('Ground State Energy')
    plt.xlabel('Bond Length')
    plt.show()
+
+def createPlot2(exactGroundStateEnergy=-1.14,numberOfIterations=1000,bondLength=0.735,initialParameters=None,numberOfParameters=16,shotsPerPoint=1000,registerSize = 12,map_type='jordan_wigner'):
+    if initialParameters is None:
+        initialParameters = np.random.rand(numberOfParameters)
+    global qubitOp
+    global qr_size
+    global shots
+    global values
+    global plottingTime
+    plottingTime= True
+    shots = shotsPerPoint
+    qr_size = registerSize
+    optimizer = COBYLA(maxiter=numberOfIterations)
+    iterations = []
+    values = []
+    for i in range(numberOfIterations):
+        iterations.append(i+1)
+
+    driver = PySCFDriver(atom="H .0 .0 .0; H .0 .0 " + str(bondLength), unit=UnitsType.ANGSTROM,
+                         charge=0, spin=0, basis='sto3g')
+    molecule = driver.run()
+    repulsion_energy = molecule.nuclear_repulsion_energy
+    num_spin_orbitals = molecule.num_orbitals * 2
+    num_particles = molecule.num_alpha + molecule.num_beta
+    ferOp = FermionicOperator(h1=molecule.one_body_integrals, h2=molecule.two_body_integrals)
+    qubitOp = ferOp.mapping(map_type=map_type, threshold=0.00000001)
+    sol_opt = optimizer.optimize(numberOfParameters, energy_opt, gradient_function=None,
+                                 variable_bounds=None, initial_point=initialParameters)
+
+    #Calculate Energy Error
+    for i in range(len(values)):
+        values[i] = values[i]+ repulsion_energy - exactGroundStateEnergy
+
+    #Saving and Plotting Data
+    filename = 'Energy Error - Iterations'
+    with open(filename, 'wb') as f:
+        pickle.dump([iterations, values], f)
+    plt.plot(iterations, values)
+    plt.ylabel('Ground State Energy')
+    plt.xlabel('Iterations')
+    plt.show()
 
 
 def opToCircs (circuit = QuantumCircuit, operator = WeightedPauliOperator, qr_size = int):
@@ -90,6 +132,9 @@ def energy_opt(parameters):
     #                 qubit_mapping="jordan_wigner", two_qubit_reduction = False, num_time_slices = 1, shallow_circuit_concat = True, z2_symmetries = None)
     circuit = var_form.construct_circuit(parameters)
     energy = E(circuit, var_form, qubitOp, qr_size)
+    if plottingTime:
+        print('bla')
+        values.append(energy)
     print(energy)
     return energy
 
@@ -104,7 +149,7 @@ def E(circuit = QuantumCircuit, var_form = VariationalForm, qubitOp = WeightedPa
    output_circuits = opToCircs(circuit, qubitOp,pauli_size*paulis_per_register)
    counter = 0
    for circuit in output_circuits:
-       job = execute(circuit, backend, shots=1000)
+       job = execute(circuit, backend, shots=shots, optimization_level=3)
        result = job.result()
        #result=quantum_instance.execute(circuit)
        counts = result.get_counts(circuit)
@@ -145,25 +190,10 @@ def sum_binary(counts, pauli = Pauli):
     return sum / total
 
 
-
-shift = 0
-dist=0.735
-qr_size = 12
-driver = PySCFDriver(atom="H .0 .0 .0; H .0 .0 " + str(dist), unit=UnitsType.ANGSTROM,
-                     charge=0, spin=0, basis='sto3g')
-molecule = driver.run()
-num_spin_orbitals=molecule.num_orbitals*2
-num_particles=molecule.num_alpha+molecule.num_beta
-
-map_type='jordan_wigner'
-ferOp = FermionicOperator(h1=molecule.one_body_integrals, h2=molecule.two_body_integrals)
-qubitOp = ferOp.mapping(map_type=map_type, threshold=0.00000001)
-
+global plottingTime
+plottingTime= False
 
 # Noisy Backend :-)
-
-#IBMQ.save_account('1023eb0c2dbe570ccfc7e35bfc42345e9b7e5e36e2f4aa5f46c6bd4b34856039f4839aef5f2939385caa8362c169f456de1f96fbda8fd1fa9bc1d026860640bd')
-#IBMQ.update_account()
 provider = IBMQ.load_account()
 #backend = Aer.get_backend("qasm_simulator")
 device = provider.get_backend("ibmq_16_melbourne")
@@ -176,17 +206,18 @@ quantum_instance = QuantumInstance(backend=backend, shots=1000,
 
 #HF_state=HartreeFock(qubitOp.num_qubits, num_spin_orbitals, num_particles, map_type) \\we need this for UCCSD
 
+createPlot1()
+#createPlot2(numberOfIterations=20)
 
+'''
 r=np.random.rand(16)
-#r= np.array([ 0.1887294 ,  1.6412292 ,  1.28960801,  0.02820515, -0.14967703,
-#        0.44681611,  1.46267043, -0.35240468,  1.76537533,  1.55680412,
-#        1.70234826,  0.50467851,  0.08815427,  0.12147291,  2.07086526,
-#        1.27208018]) \\good starting parameters for RYRZ
-
+r= np.array([ 0.1887294 ,  1.6412292 ,  1.28960801,  0.02820515, -0.14967703,
+        0.44681611,  1.46267043, -0.35240468,  1.76537533,  1.55680412,
+        1.70234826,  0.50467851,  0.08815427,  0.12147291,  2.07086526,
+        1.27208018]) \\good starting parameters for RYRZ
 optimizer = COBYLA(maxiter=100)
+sol_opt = optimizer.optimize(16, energy_opt, gradient_function=None,
+                variable_bounds=None, initial_point=r)
+print(sol_opt)
+'''
 
-#sol_opt = optimizer.optimize(16, energy_opt, gradient_function=None,
-#                variable_bounds=None, initial_point=r)
-#print(sol_opt)
-
-createPlot1(0.5, 1.5)
